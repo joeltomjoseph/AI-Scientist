@@ -348,7 +348,12 @@ def train(dataset="shakespeare_char", out_dir="run_0", seed_offset=0):
     # DDP settings
     backend = "nccl"  # 'nccl', 'gloo', etc.
     # system
-    device = "cuda"  # Always use CUDA
+    if torch.backends.mps.is_available(): # TOOD: MPS doesnt seem to work later on so disable and force CPU
+        print("NanoGPT experiment: Using Metal Performance Shaders")
+        device = "mps"
+    else:
+        print("NanoGPT experiment: Using CUDA or CPU")
+        device = "cuda" if torch.cuda.is_available() else "cpu"  # Always use CUDA
     dtype = (
         "bfloat16"
         if torch.cuda.is_available() and torch.cuda.is_bf16_supported()
@@ -367,8 +372,9 @@ def train(dataset="shakespeare_char", out_dir="run_0", seed_offset=0):
     torch.manual_seed(1337 + seed_offset)
     torch.backends.cuda.matmul.allow_tf32 = True  # allow tf32 on matmul
     torch.backends.cudnn.allow_tf32 = True  # allow tf32 on cudnn
+
     device_type = (
-        "cuda" if "cuda" in device else "cpu"
+        device # CHANGE: here
     )  # for later use in torch.autocast
     # note: float16 data type will automatically use a GradScaler
     ptdtype = {
@@ -378,7 +384,7 @@ def train(dataset="shakespeare_char", out_dir="run_0", seed_offset=0):
     }[dtype]
     ctx = (
         nullcontext()
-        if device_type == "cpu"
+        if device_type == "cpu" or device_type == "mps" # TOOD: this will be fixed in pytorch 2.5 so remove mps here when it's released
         else torch.amp.autocast(device_type=device_type, dtype=ptdtype)
     )
 
@@ -459,7 +465,7 @@ def train(dataset="shakespeare_char", out_dir="run_0", seed_offset=0):
     model.to(device)
 
     # initialize a GradScaler. If enabled=False scaler is a no-op
-    scaler = torch.cuda.amp.GradScaler(enabled=(dtype == "float16"))
+    scaler = torch.amp.GradScaler(enabled=(dtype == "float16"))
 
     # optimizer
     optimizer = model.configure_optimizers(

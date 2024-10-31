@@ -46,8 +46,9 @@ def parse_arguments():
     parser.add_argument(
         "--model",
         type=str,
-        default="claude-3-5-sonnet-20240620",
+        default="custom",
         choices=[
+            "custom", # Use custom locally run model which will be interfaced with the OpenAI API
             "claude-3-5-sonnet-20240620",
             "gpt-4o-2024-05-13",
             "deepseek-coder-v2-0724",
@@ -92,7 +93,7 @@ def parse_arguments():
     parser.add_argument(
         "--num-ideas",
         type=int,
-        default=50,
+        default=20,
         help="Number of ideas to generate",
     )
     return parser.parse_args()
@@ -101,7 +102,7 @@ def parse_arguments():
 def get_available_gpus(gpu_ids=None):
     if gpu_ids is not None:
         return [int(gpu_id) for gpu_id in gpu_ids.split(",")]
-    return list(range(torch.cuda.device_count()))
+    return list(range(torch.cuda.device_count() + torch.mps.device_count()))
 
 
 def worker(
@@ -181,7 +182,9 @@ def do_idea(
         io = InputOutput(
             yes=True, chat_history_file=f"{folder_name}/{idea_name}_aider.txt"
         )
-        if model == "deepseek-coder-v2-0724":
+        if model == "custom": # TODO: Make this more general for any custom model
+            main_model = Model("ollama/deepseek-coder-v2:16b") # NOTE: https://aider.chat/docs/llms/ollama.html
+        elif model == "deepseek-coder-v2-0724":
             main_model = Model("deepseek/deepseek-coder")
         elif model == "llama3.1-405b":
             main_model = Model("openrouter/meta-llama/llama-3.1-405b-instruct")
@@ -215,7 +218,9 @@ def do_idea(
         if writeup == "latex":
             writeup_file = osp.join(folder_name, "latex", "template.tex")
             fnames = [exp_file, writeup_file, notes]
-            if model == "deepseek-coder-v2-0724":
+            if model == "custom": # TODO: Make this more general for any custom model
+                main_model = Model("ollama/deepseek-coder-v2:16b") # NOTE: https://aider.chat/docs/llms/ollama.html
+            elif model == "deepseek-coder-v2-0724":
                 main_model = Model("deepseek/deepseek-coder")
             elif model == "llama3.1-405b":
                 main_model = Model("openrouter/meta-llama/llama-3.1-405b-instruct")
@@ -244,10 +249,19 @@ def do_idea(
         if writeup == "latex":
             try:
                 paper_text = load_paper(f"{folder_name}/{idea['Name']}.pdf")
-                review = perform_review(
+                # review = perform_review(
+                #     paper_text,
+                #     model="gpt-4o-2024-05-13",
+                #     client=openai.OpenAI(),
+                #     num_reflections=5,
+                #     num_fs_examples=1,
+                #     num_reviews_ensemble=5,
+                #     temperature=0.1,
+                # )
+                review = perform_review( # Modified to use custom model
                     paper_text,
-                    model="gpt-4o-2024-05-13",
-                    client=openai.OpenAI(),
+                    model=client_model,
+                    client=client,
                     num_reflections=5,
                     num_fs_examples=1,
                     num_reviews_ensemble=5,
@@ -270,10 +284,19 @@ def do_idea(
                     coder, folder_name, f"{folder_name}/{idea['Name']}_improved.pdf"
                 )
                 paper_text = load_paper(f"{folder_name}/{idea['Name']}_improved.pdf")
-                review = perform_review(
+                # review = perform_review(
+                #     paper_text,
+                #     model="gpt-4o-2024-05-13",
+                #     client=openai.OpenAI(),
+                #     num_reflections=5,
+                #     num_fs_examples=1,
+                #     num_reviews_ensemble=5,
+                #     temperature=0.1,
+                # )
+                review = perform_review( # Modified to use custom model
                     paper_text,
-                    model="gpt-4o-2024-05-13",
-                    client=openai.OpenAI(),
+                    model=client_model,
+                    client=client,
                     num_reflections=5,
                     num_fs_examples=1,
                     num_reviews_ensemble=5,
@@ -309,9 +332,18 @@ if __name__ == "__main__":
         args.parallel = len(available_gpus)
 
     print(f"Using GPUs: {available_gpus}")
+    # print(f"Arguments: {args}")
 
     # Create client
-    if args.model == "claude-3-5-sonnet-20240620":
+    if args.model == "custom": # TODO: Make this more general for any custom model, can use .startswith("ollama/")
+        import openai
+
+        print(f"Using OpenAI API with {args.model}.")
+        client_model = "deepseek-coder-v2:16b"
+        client = openai.OpenAI(
+            api_key="ollama", base_url="http://localhost:11434/v1"
+        )
+    elif args.model == "claude-3-5-sonnet-20240620":
         import anthropic
 
         print(f"Using Anthropic API with model {args.model}.")

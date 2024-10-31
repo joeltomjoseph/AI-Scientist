@@ -252,7 +252,7 @@ def train(model, train_loader, optimizer, scheduler, device, num_train_batches):
             break
 
     acc = correct / total
-    loss = loss_total / total
+    loss = loss_total / total # ERROR: this becomes nan at some point invalidating the experiment
 
     metrics = {
         "train_accuracy": float(acc),
@@ -290,7 +290,7 @@ def evaluate(model, val_loader, device, num_eval_batches):
             break
 
     acc = correct / total
-    loss = loss / total
+    loss = loss / total # ERROR: this becomes nan at some point invalidating the experiment
 
     metrics = {"val_accuracy": float(acc), "val_loss": float(loss)}
     return metrics
@@ -298,7 +298,13 @@ def evaluate(model, val_loader, device, num_eval_batches):
 
 def run(out_dir, dataset, seed_offset):
     os.makedirs(out_dir, exist_ok=True)
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    # Use GPU if available
+    if torch.backends.mps.is_available():
+        print("Using Metal Performance Shaders")
+        device = torch.device("mps") # use Metal Performance Shaders (Mac M-series GPU) if available
+    else:
+        print("Using CUDA or CPU")
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu") # use cuda(nvidia gpu) if available, else use cpu
     torch.manual_seed(1337 + seed_offset)
     train_loader, val_loader, n_vocab, n_output = get_data(
         operation=dataset,

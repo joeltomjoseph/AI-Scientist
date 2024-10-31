@@ -19,7 +19,13 @@ from ema_pytorch import EMA
 
 import datasets
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# Use GPU if available
+if torch.backends.mps.is_available():
+    print("Using Metal Performance Shaders")
+    device = torch.device("mps") # use Metal Performance Shaders (Mac M-series GPU) if available
+else:
+    print("Using CUDA or CPU")
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu") # use cuda(nvidia gpu) if available, else use cpu
 
 
 class SinusoidalEmbedding(nn.Module):

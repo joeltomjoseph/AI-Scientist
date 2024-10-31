@@ -348,7 +348,12 @@ def train(dataset="shakespeare_char", out_dir="run_0", seed_offset=0):
     # DDP settings
     backend = "nccl"  # 'nccl', 'gloo', etc.
     # system
-    device = "cuda"  # Always use CUDA
+    if torch.backends.mps.is_available(): # TOOD: MPS doesnt seem to work later on so disable and force CPU
+        print("NanoGPT experiment: Using Metal Performance Shaders")
+        device = "mps"
+    else:
+        print("NanoGPT experiment: Using CUDA or CPU")
+        device = "cuda" if torch.cuda.is_available() else "cpu"  # Always use CUDA
     dtype = (
         "bfloat16"
         if torch.cuda.is_available() and torch.cuda.is_bf16_supported()
@@ -409,7 +414,7 @@ def train(dataset="shakespeare_char", out_dir="run_0", seed_offset=0):
                 for i in ix
             ]
         )
-        if device_type == "cuda":
+        if device_type == "cuda" or device_type == "mps":
             # pin arrays x,y, which allows us to move them to GPU asynchronously (non_blocking=True)
             x, y = x.pin_memory().to(device, non_blocking=True), y.pin_memory().to(
                 device, non_blocking=True

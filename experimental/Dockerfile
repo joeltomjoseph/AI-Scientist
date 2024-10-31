@@ -8,7 +8,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 WORKDIR /app
 
 # Install system dependencies including texlive-full
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update && apt-get install -y --no-install-recommends --allow-downgrades \
     wget=1.21-1+deb11u1 \
     git=1:2.30.2-1+deb11u2 \
     build-essential=12.9 \
@@ -20,7 +20,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libncursesw5-dev=6.2+20201114-2+deb11u2 \
     xz-utils=5.2.5-2.1~deb11u1 \
     tk-dev=8.6.11+1 \
-    libxml2-dev=2.9.10+dfsg-6.7+deb11u4 \
+    #libxml2-dev=2.9.10+dfsg-6.7+deb11u4 \
+    libxml2-dev \
     libxmlsec1-dev=1.2.31-1 \
     libffi-dev=3.3-6 \
     liblzma-dev=5.2.5-2.1~deb11u1 \
@@ -56,8 +57,13 @@ RUN git checkout 8b0d9485423f74e5eb199324cf362765596538d3 \
     && pip install .
 
 # Clone the AI-Scientist repository
+# WORKDIR /app
+# RUN git clone https://github.com/SakanaAI/AI-Scientist.git
+
+# Copy the directory into the container
 WORKDIR /app
-RUN git clone https://github.com/SakanaAI/AI-Scientist.git
+COPY . /app/AI-Scientist
+# RUN pwd && ls
 
 # Set working directory to AI-Scientist
 WORKDIR /app/AI-Scientist
