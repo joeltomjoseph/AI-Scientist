@@ -272,7 +272,7 @@ class GPT(nn.Module):
         )
         # Create AdamW optimizer and use the fused version if it is available
         fused_available = "fused" in inspect.signature(torch.optim.AdamW).parameters
-        use_fused = fused_available and device_type == "cuda"
+        use_fused = fused_available and (device_type == "cuda" or device_type == "mps")
         extra_args = dict(fused=True) if use_fused else dict()
         optimizer = torch.optim.AdamW(
             optim_groups, lr=learning_rate, betas=betas, **extra_args
@@ -349,11 +349,12 @@ def train(dataset="shakespeare_char", out_dir="run_0", seed_offset=0):
     # DDP settings
     backend = "nccl"  # 'nccl', 'gloo', etc.
     # system
-    if torch.backends.mps.is_available(): # TOOD: MPS doesnt seem to work later on so disable and force CPU
-        print("NanoGPT experiment: Using Metal Performance Shaders")
+    if torch.backends.mps.is_available():
+        print("NanoGPT lite experiment: Using Metal Performance Shaders")
         device = "mps"
+        os.putenv("PYTORCH_ENABLE_MPS_FALLBACK", "1") # If MPS fails down the line, use CPU -- this is because aten::native_dropout is not supported by MPS yet
     else:
-        print("NanoGPT experiment: Using CUDA or CPU")
+        print("NanoGPT lite experiment: Using CUDA or CPU")
         device = "cuda" if torch.cuda.is_available() else "cpu"  # Always use CUDA
     dtype = (
         "bfloat16"
@@ -415,7 +416,7 @@ def train(dataset="shakespeare_char", out_dir="run_0", seed_offset=0):
                 for i in ix
             ]
         )
-        if device_type == "cuda" or device_type == "mps":
+        if device_type == "cuda":
             # pin arrays x,y, which allows us to move them to GPU asynchronously (non_blocking=True)
             x, y = x.pin_memory().to(device, non_blocking=True), y.pin_memory().to(
                 device, non_blocking=True
@@ -465,7 +466,7 @@ def train(dataset="shakespeare_char", out_dir="run_0", seed_offset=0):
     model.to(device)
 
     # initialize a GradScaler. If enabled=False scaler is a no-op
-    scaler = torch.cuda.amp.GradScaler(enabled=(dtype == "float16"))
+    scaler = torch.amp.GradScaler(enabled=(dtype == "float16"))
 
     # optimizer
     optimizer = model.configure_optimizers(
@@ -477,7 +478,7 @@ def train(dataset="shakespeare_char", out_dir="run_0", seed_offset=0):
     if compile:
         print("compiling the model... (takes a ~minute)")
         unoptimized_model = model
-        model = torch.compile(model)  # requires PyTorch 2.0
+        model = torch.compile(model, backend="aot_eager" if torch.backends.mps.is_available() else "inductor")  # requires PyTorch 2.0 | "aot_eager" works on MacOS)
 
     # helps estimate an arbitrarily accurate loss over either split using many batches
     @torch.no_grad()

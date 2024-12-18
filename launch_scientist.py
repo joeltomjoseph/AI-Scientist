@@ -12,6 +12,7 @@ from aider.coders import Coder
 from aider.io import InputOutput
 from aider.models import Model
 from datetime import datetime
+import requests
 
 from ai_scientist.generate_ideas import generate_ideas, check_idea_novelty
 from ai_scientist.llm import create_client, AVAILABLE_LLMS
@@ -48,7 +49,7 @@ def parse_arguments():
     parser.add_argument(
         "--model",
         type=str,
-        default="custom",
+        default="ollama",
         choices=AVAILABLE_LLMS,
         help="Model to use for AI Scientist.",
     )
@@ -168,9 +169,9 @@ def do_idea(
         io = InputOutput(
             yes=True, chat_history_file=f"{folder_name}/{idea_name}_aider.txt"
         )
-        if model == "custom": # TODO: Make this more general for any custom model
-            main_model = Model("ollama/deepseek-coder-v2:16b") # NOTE: https://aider.chat/docs/llms/ollama.html
-        elif model == "deepseek-coder-v2-0724":
+        # if model.startswith("ollama/"): # TODO: Make this more general for any custom model
+        #     main_model = Model(model) # NOTE: https://aider.chat/docs/llms/ollama.html
+        if model == "deepseek-coder-v2-0724":
             main_model = Model("deepseek/deepseek-coder")
         elif model == "llama3.1-405b":
             main_model = Model("openrouter/meta-llama/llama-3.1-405b-instruct")
@@ -319,6 +320,21 @@ if __name__ == "__main__":
 
     print(f"Using GPUs: {available_gpus}")
     # print(f"Arguments: {args}")
+
+    # If ollama model is used - prompt for model name
+    if args.model == "ollama":
+        # args.model = "ollama/" + input("Enter Ollama model name: ")
+        response = requests.get("http://localhost:11434/api/tags") # Gets available models from Ollama server
+        if response.status_code == 200:
+            models = response.json()["models"]
+            print("Available models on localhost Ollama:")
+            for i, model in enumerate(models):
+                print(f"{i + 1}. {model['name']}")
+            model_index = int(input("Enter the number of the model you want to use: ")) - 1
+            args.model = "ollama/" + models[model_index]['name']
+        else:
+            print("Failed to retrieve models from localhost Ollama.")
+            sys.exit(1)
 
     # Create client
     client, client_model = create_client(args.model)

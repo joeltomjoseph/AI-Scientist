@@ -272,7 +272,7 @@ class GPT(nn.Module):
         )
         # Create AdamW optimizer and use the fused version if it is available
         fused_available = "fused" in inspect.signature(torch.optim.AdamW).parameters
-        use_fused = fused_available and device_type == "cuda"
+        use_fused = fused_available and (device_type == "cuda" or device_type == "mps")
         extra_args = dict(fused=True) if use_fused else dict()
         optimizer = torch.optim.AdamW(
             optim_groups, lr=learning_rate, betas=betas, **extra_args
@@ -349,9 +349,10 @@ def train(dataset="shakespeare_char", out_dir="run_0", seed_offset=0):
     # DDP settings
     backend = "nccl"  # 'nccl', 'gloo', etc.
     # system
-    if torch.backends.mps.is_available(): # TOOD: MPS doesnt seem to work later on so disable and force CPU
+    if torch.backends.mps.is_available():
         print("NanoGPT experiment: Using Metal Performance Shaders")
         device = "mps"
+        os.putenv("PYTORCH_ENABLE_MPS_FALLBACK", "1") # If MPS fails down the line, use CPU -- this is because aten::native_dropout is not supported by MPS yet
     else:
         print("NanoGPT experiment: Using CUDA or CPU")
         device = "cuda" if torch.cuda.is_available() else "cpu"  # Always use CUDA
@@ -385,7 +386,7 @@ def train(dataset="shakespeare_char", out_dir="run_0", seed_offset=0):
     }[dtype]
     ctx = (
         nullcontext()
-        if device_type == "cpu" or device_type == "mps" # TOOD: this will be fixed in pytorch 2.5 so remove mps here when it's released
+        if device_type == "cpu"
         else torch.amp.autocast(device_type=device_type, dtype=ptdtype)
     )
 
@@ -478,7 +479,7 @@ def train(dataset="shakespeare_char", out_dir="run_0", seed_offset=0):
     if compile:
         print("compiling the model... (takes a ~minute)")
         unoptimized_model = model
-        model = torch.compile(model)  # requires PyTorch 2.0
+        model = torch.compile(model, backend="aot_eager" if torch.backends.mps.is_available() else "inductor")  # requires PyTorch 2.0 | "aot_eager" works on MacOS
 
     # helps estimate an arbitrarily accurate loss over either split using many batches
     @torch.no_grad()

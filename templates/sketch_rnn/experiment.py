@@ -339,14 +339,16 @@ if __name__ == "__main__":
     for dataset_name in ["cat", "butterfly", "yoga", "owl"]:
 
         # Prepare model
+        if torch.backends.mps.is_available():
+            config.device = 'mps'
         if config.device == 'cuda':
             assert torch.cuda.is_available(), (
                 "Device set to cuda, but cuda is unavailable."
             )
         model = Model(config)
         print("compiling the model... (takes a ~minute)")
-        model.encoder = torch.compile(model.encoder)
-        model.decoder = torch.compile(model.decoder)
+        model.encoder = torch.compile(model.encoder, backend="aot_eager" if config.device == "mps" else "inductor") # Use aot_eager for MPS as inductor is not supported
+        model.decoder = torch.compile(model.decoder, backend="aot_eager" if config.device == "mps" else "inductor")
 
         # Prepare data
         dataset = utils.get_dataset(dataset_name, config.sequence_length)

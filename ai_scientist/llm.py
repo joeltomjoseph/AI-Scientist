@@ -9,6 +9,7 @@ import openai
 MAX_NUM_TOKENS = 4096
 
 AVAILABLE_LLMS = [
+    "ollama", # Custom Ollama model, prompts the user to select a model available locally
     "claude-3-5-sonnet-20240620",
     "claude-3-5-sonnet-20241022",
     "gpt-4o-mini-2024-07-18",
@@ -36,7 +37,7 @@ AVAILABLE_LLMS = [
 def get_batch_responses_from_llm(
         msg,
         client,
-        model,
+        model: str,
         system_message,
         print_debug=False,
         msg_history=None,
@@ -46,7 +47,24 @@ def get_batch_responses_from_llm(
     if msg_history is None:
         msg_history = []
 
-    if model in [
+    if model.startswith("ollama"):
+        new_msg_history = msg_history + [{"role": "user", "content": msg}]
+        response = client.chat.completions.create(
+            model=model.removeprefix("ollama/"),
+            messages=[
+                {"role": "system", "content": system_message},
+                *new_msg_history,
+            ],
+            temperature=temperature,
+            max_tokens=3000,
+            n=n_responses,
+            stop=None,
+        )
+        content = [r.message.content for r in response.choices]
+        new_msg_history = [
+            new_msg_history + [{"role": "assistant", "content": c}] for c in content
+        ]
+    elif model in [
         "gpt-4o-2024-05-13",
         "gpt-4o-mini-2024-07-18",
         "gpt-4o-2024-08-06",
@@ -143,10 +161,11 @@ def get_response_from_llm(
     if msg_history is None:
         msg_history = []
 
-    if model == "deepseek-coder-v2:16b": # TODO: Make this more general
+    if model.startswith("ollama"):
         new_msg_history = msg_history + [{"role": "user", "content": msg}]
         response = client.chat.completions.create(
-            model="deepseek-coder-v2:16b",
+            # model="deepseek-coder-v2:16b",
+            model=model.removeprefix("ollama/"),
             messages=[
                 {"role": "system", "content": system_message},
                 *new_msg_history,
@@ -299,14 +318,13 @@ def extract_json_between_markers(llm_output):
 
 
 def create_client(model):
-    if model == "custom":
-        print("Using custom Ollama model with OpenAI API.")
-        # maybe update the model to equal the name of the custom model
-        # model = 
-        return openai.OpenAI(
+    if model.startswith("ollama"):
+        print(f"Using custom Ollama model ({model.removeprefix('ollama/')}) with OpenAI API.")
+        client = openai.OpenAI(
             api_key="ollama",
             base_url="http://localhost:11434/v1",
-            ), model
+        )
+        return client, model
     if model.startswith("claude-"):
         print(f"Using Anthropic API with model {model}.")
         return anthropic.Anthropic(), model

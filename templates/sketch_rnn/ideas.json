@@ -27,12 +27,21 @@
         "novel": true
     },
     {
-        "Name": "adaptive_dropout",
-        "Title": "Improving Sketch Generation with Adaptive Dropout",
-        "Experiment": "Introduce an adaptive dropout mechanism that adjusts the dropout rate dynamically based on the training step. Implement a `dropout_scheduler` function that decreases the dropout rate from 0.5 to 0.1 linearly over the training steps. Modify the `EncoderRNN` and `DecoderRNN` classes to accept a dynamic dropout rate parameter. Update the dropout rate in each forward pass of the encoder and decoder based on the current training step. Integrate the `dropout_scheduler` into the training loop, updating the dropout rates in each step. Evaluate the quality and diversity of the generated sketches with and without adaptive dropout.",
+        "Name": "interactive_feature_integration",
+        "Title": "Interactive Feature Integration for Personalized Sketch Generation",
+        "Experiment": "Develop a model that captures user interaction features such as pen pressure, tilt, and velocity in real-time during both training and sketch generation phases. This involves creating custom preprocessing steps to collect interaction data from users during training sessions, which are then used for feature extraction and integration into the loss function and sampling process within the neural network architecture. The result is a model that not only generates diverse sketches but also adapts its outputs based on each user's unique interactive patterns.",
         "Interestingness": 8,
-        "Feasibility": 8,
-        "Novelty": 7,
+        "Feasibility": 7,
+        "Novelty": 9,
+        "novel": true
+    },
+    {
+        "Name": "novel_cognitive_bias_integration",
+        "Title": "Exploring Unconventional Cognitive Biases in Sketch Generation",
+        "Experiment": "Expand the scope of cognitive biases to include less conventional heuristics that are known for influencing creative thought, such as the availability heuristic or the role of emotional triggers. Implement a two-fold approach: first, pre-train the model on identifying and simulating these unconventional biases based on user interaction data; second, during generation, introduce dynamic adjustments in the generative process that resonate with the identified bias patterns to enhance personalization and engagement.",
+        "Interestingness": 8,
+        "Feasibility": 7,
+        "Novelty": 9,
         "novel": true
     }
 ]
